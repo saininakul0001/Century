@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Century scorekeeper</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3efe6;--card:#fffdf8;--ink:#1d2a2a;--mut:#6b7774;--line:#d9d3c3;--acc:#0f5c4d;--bad:#b3261e;--good:#1b7a3d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181a;--card:#182326;--ink:#e9efec;--mut:#93a39f;--line:#2b3a3d;--acc:#4fc3a1;--bad:#ff8a80;--good:#7fdc9c}}
+:root[data-theme="dark"]{--bg:#10181a;--card:#182326;--ink:#e9efec;--mut:#93a39f;--line:#2b3a3d;--acc:#4fc3a1;--bad:#ff8a80;--good:#7fdc9c}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Georgia,"Times New Roman",serif}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:1.1rem;margin:0 0 10px}
+p.sub{margin:0 0 20px;color:var(--mut)}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+input,select,button{font:inherit;color:inherit}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+button{background:var(--acc);color:var(--bg);border:0;border-radius:6px;padding:9px 14px;cursor:pointer;font-weight:600}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:2px 4px 2px 14px;margin:0 6px 8px 0}
+.chip button{padding:0;width:36px;height:36px;margin-left:2px;border-radius:50%;background:transparent;color:var(--bad);font-size:1.4rem;line-height:1}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tfoot td{font-weight:700;font-size:1.1rem;border-bottom:0}
+.over{color:var(--bad)}
+.low{color:var(--good)}
+.hand{display:grid;grid-template-columns:1fr auto 52px;gap:8px;margin-bottom:8px;align-items:center}
+.pick{background:transparent;color:var(--ink);border:1px solid var(--line);text-align:left;padding:10px 12px;min-height:44px}
+.pick[aria-pressed="true"]{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.step{display:flex;gap:4px}
+.step button{background:transparent;color:var(--ink);border:1px solid var(--line);width:42px;min-height:44px;padding:0;font-size:1.3rem}
+.step input{width:52px;text-align:center;font-size:1.1rem}
+.pts{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--mut)}
+.pts.neg{color:var(--good)}
+.val{background:var(--bg);color:var(--ink);border:1px solid var(--line);min-width:64px;min-height:44px;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.val[aria-pressed="true"]{border:2px solid var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.pad button{background:var(--bg);color:var(--ink);border:1px solid var(--line);min-height:52px;font-size:1.3rem}
+.pad button.next{background:var(--acc);color:var(--bg);font-size:1rem}
+.note{color:var(--mut);font-size:.9rem;margin:8px 0 0}
+.banner{border:2px solid var(--acc);border-radius:10px;padding:14px;margin-bottom:16px;background:var(--card)}
+.err{color:var(--bad);margin:8px 0 0;min-height:1.2em}
+</style></head>
+<body><main>
+<h1>Century scorekeeper</h1>
+<p class="sub">Lowest score wins. The game stops when anyone reaches 100.</p>
+
+<div id="banner"></div>
+
+<section id="setup">
+<h2>Players</h2>
+<div id="chips"></div>
+<div class="row"><input id="name" placeholder="Player name" maxlength="16" aria-label="Player name"><button id="add">Add player</button></div>
+<p class="note">Add 2 to 8 players before the first round. Names lock once a round is recorded.</p>
+</section>
+
+<section id="roundBox" hidden>
+<h2>Record a round</h2>
+<p class="note" style="margin:0 0 10px" id="hint">Tap a name to mark who called show, then set each hand total.</p>
+<div id="hands"></div>
+<div id="pad" class="pad"></div>
+<div class="row"><button id="save">Score round</button></div>
+<p class="err" id="err" role="alert"></p>
+<p class="note">Enter each player's hand total: A–9 at face value, 10/J/Q = 10, K = 0. The shower's total must be under 5.</p>
+</section>
+
+<section id="board" hidden>
+<h2>Scores</h2>
+<div class="scroll"><table id="tbl"></table></div>
+<div class="row" style="margin-top:12px"><button class="ghost" id="undo">Undo last round</button><button class="ghost" id="reset">New game</button></div>
+</section>
+</main>
+<script>
+var S={players:[],rounds:[]};
+var KEY="century-v1";
+function load(){try{var v=localStorage.getItem(KEY);if(v){var o=JSON.parse(v);if(o&&o.players&&o.rounds)S=o}}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function totals(){var t=S.players.map(function(){return 0});S.rounds.forEach(function(r){r.pts.forEach(function(p,i){t[i]+=p})});return t}
+function over(){return totals().some(function(x){return x>=100})}
+
+// Scoring: returns points per player, or an error string
+function score(shower,hand){
+  if(hand[shower]>=5)return{error:"The shower's total must be under 5."};
+  var others=hand.map(function(h,i){return i}).filter(function(i){return i!==shower});
+  var x=Math.min.apply(null,others.map(function(i){return hand[i]}));
+  var pts=hand.map(function(){return 0});
+  if(x<=hand[shower]){ // unsuccessful: shower +25, others total - x (cutter gets 0)
+    pts[shower]=25;others.forEach(function(i){pts[i]=hand[i]-x});
+    return{pts:pts,ok:false,x:x};
+  }
+  pts[shower]=-5;others.forEach(function(i){pts[i]=hand[i]-hand[shower]});
+  return{pts:pts,ok:true};
+}
+
+function render(){
+  var n=S.players.length,started=S.rounds.length>0,done=over();
+  $("chips").innerHTML=S.players.map(function(p,i){
+    return '<span class="chip">'+esc(p)+(started?'':'<button data-rm="'+i+'" aria-label="Remove '+esc(p)+'">×</button>')+'</span>'}).join("");
+  $("add").disabled=started||n>=8;$("name").disabled=started||n>=8;
+  $("roundBox").hidden=n<2||done;
+  $("board").hidden=n<2;
+  sh=-1;act=0;hv=S.players.map(function(){return 0});renderHands();
+  var t=totals();
+  var head='<thead><tr><th>Round</th>'+S.players.map(function(p){return '<th>'+esc(p)+'</th>'}).join("")+'</tr></thead>';
+  var body='<tbody>'+S.rounds.map(function(r,k){
+    return '<tr><td>'+(k+1)+(r.ok?' ✓':' ✗')+'</td>'+r.pts.map(function(x){return '<td>'+x+'</td>'}).join("")+'</tr>'}).join("")+'</tbody>';
+  var min=Math.min.apply(null,t);
+  var foot='<tfoot><tr><td>Total</td>'+t.map(function(x){
+    return '<td class="'+(x>=100?'over':(done&&x===min?'low':''))+'">'+x+'</td>'}).join("")+'</tr></tfoot>';
+  $("tbl").innerHTML=head+body+foot;
+  $("undo").disabled=!started;
+  var b=$("banner");
+  if(done){
+    var w=S.players.filter(function(p,i){return t[i]===min});
+    b.innerHTML='<div class="banner"><strong>Game over.</strong> '+esc(w.join(" and "))+(w.length>1?' tie':' wins')+' with '+min+' points.</div>';
+  }else b.innerHTML="";
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var sh=-1,act=0,hv=[];
+function renderHands(){
+  $("hands").innerHTML=S.players.map(function(p,i){
+    return '<div class="hand"><button class="pick" data-pick="'+i+'" aria-pressed="'+(sh===i)+'">'+esc(p)+(sh===i?' \u00b7 show':'')+'</button>'+
+    '<button class="val" data-sel="'+i+'" aria-pressed="'+(act===i)+'" aria-label="'+esc(p)+' hand total">'+hv[i]+'</button>'+
+    '<span class="pts" id="p'+i+'"></span></div>'}).join("");
+  preview();
+}
+function readHands(){return hv.slice()}
+function preview(){
+  $("err").textContent="";
+  var r=sh<0?null:score(sh,readHands());
+  S.players.forEach(function(p,i){
+    var e=$("p"+i);if(!e)return;
+    var v=r&&r.pts?r.pts[i]:null;
+    e.textContent=v===null?"":(v>0?"+"+v:String(v));e.className="pts"+(v!==null&&v<0?" neg":"");
+  });
+  $("hint").textContent=sh<0?"Tap a name to mark who called show. Tap a total, then use the keypad.":(r.error?r.error:(r.ok?"Successful show. Points for this round are on the right.":"Show was cut: the shower takes +25."));
+}
+$("hands").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var k=b.getAttribute("data-pick"),q=b.getAttribute("data-sel");
+  if(k!==null)sh=(sh===+k)?-1:+k;
+  else if(q!==null)act=+q;
+  else return;
+  renderHands();
+});
+$("pad").innerHTML=["1","2","3","4","5","6","7","8","9","\u232b","0","Next"].map(function(k){
+  return '<button data-key="'+k+'"'+(k==="Next"?' class="next"':'')+'>'+k+'</button>'}).join("");
+$("pad").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b||!S.players.length)return;
+  var k=b.getAttribute("data-key"),v=hv[act];
+  if(k==="Next")act=(act+1)%S.players.length;
+  else if(k==="\u232b")hv[act]=Math.floor(v/10);
+  else{var n=v*10+(+k);if(n<=99)hv[act]=n}
+  renderHands();
+});
+$("add").onclick=function(){
+  var v=$("name").value.trim();if(!v||S.players.length>=8)return;
+  if(S.players.indexOf(v)>-1){$("name").value="";return}
+  S.players.push(v);$("name").value="";persist();render();$("name").focus();
+};
+$("name").addEventListener("keydown",function(e){if(e.key==="Enter")$("add").click()});
+$("chips").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var i=b.getAttribute("data-rm");if(i===null)return;
+  S.players.splice(+i,1);persist();render();
+});
+$("save").onclick=function(){
+  if(sh<0){$("err").textContent="Tap the player who called show.";return}
+  var r=score(sh,readHands());
+  if(r.error){$("err").textContent=r.error;return}
+  S.rounds.push({pts:r.pts,ok:r.ok});persist();render();
+};
+$("undo").onclick=function(){S.rounds.pop();persist();render()};
+var rt;
+$("reset").onclick=function(){
+  var b=$("reset");
+  if(b.getAttribute("data-arm")){clearTimeout(rt);b.removeAttribute("data-arm");b.textContent="New game";S.rounds=[];persist();render();return}
+  b.setAttribute("data-arm","1");b.textContent="Tap again to clear scores";
+  rt=setTimeout(function(){b.removeAttribute("data-arm");b.textContent="New game"},4000);
+};
+load();render();
+</script></body></html>
