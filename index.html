@@ -67,7 +67,7 @@ tfoot td{font-weight:700;font-size:1.1rem;border-bottom:0}
 <div id="pad" class="pad"></div>
 <div class="row"><button id="save">Score round</button></div>
 <p class="err" id="err" role="alert"></p>
-<p class="note">Enter each player's hand total: A–9 at face value, 10/J/Q = 10, K = 0. The shower's total must be under 5.</p>
+<p class="note">Enter each player's hand total: A–9 at face value, 10/J/Q = 10, K = 0. The shower's total must be 5 or less.</p>
 </section>
 
 <section id="board" hidden>
@@ -87,7 +87,7 @@ function over(){return totals().some(function(x){return x>=100})}
 
 // Scoring: returns points per player, or an error string
 function score(shower,hand){
-  if(hand[shower]>=5)return{error:"The shower's total must be under 5."};
+  if(hand[shower]>5)return{error:"The shower's total must be 5 or less."};
   var others=hand.map(function(h,i){return i}).filter(function(i){return i!==shower});
   var x=Math.min.apply(null,others.map(function(i){return hand[i]}));
   var pts=hand.map(function(){return 0});
